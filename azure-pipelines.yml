@@ -1,0 +1,26 @@
+trigger:
+- main
+
+pool:
+  vmImage: ubuntu-latest
+
+variables:
+  resourceGroup: AzLocal
+  clusterName: aks-test
+  namespace: hello
+  yamlPath: hello-deployment.yaml
+
+steps:
+
+- task: AzureCLI@2
+  inputs:
+    azureSubscription: 'my-azure-conn'
+    scriptType: bash
+    scriptLocation: inlineScript
+    inlineScript: |
+      echo ">> Get kubeconfig for Azure Arc AKS"
+      az aks get-credentials --resource-group $resourceGroup --name $clusterName --admin --overwrite-existing
+
+      echo ">> Apply YAML to local AKS (Arc)"
+      kubectl create namespace $namespace --dry-run=client -o yaml | kubectl apply -f -
+      kubectl apply -f $yamlPath -n $namespace
