@@ -5,22 +5,24 @@ pool:
   vmImage: ubuntu-latest
 
 variables:
-  resourceGroup: AzLocal
-  clusterName: aks-test
   namespace: hello
   yamlPath: hello-deployment.yaml
 
 steps:
-
-- task: AzureCLI@2
+# 1. kubeconfig.yaml Secure File 다운로드
+- task: DownloadSecureFile@1
+  name: kubeconfig
   inputs:
-    azureSubscription: 'my-azure-conn'
-    scriptType: bash
-    scriptLocation: inlineScript
-    inlineScript: |
-      echo ">> Get kubeconfig for Azure Arc AKS"
-      az aks get-credentials --resource-group $resourceGroup --name $clusterName --admin --overwrite-existing
+    secureFile: 'kubeconfig.yaml'   # 🔐 Secure Files에 업로드한 파일 이름
 
-      echo ">> Apply YAML to local AKS (Arc)"
-      kubectl create namespace $namespace --dry-run=client -o yaml | kubectl apply -f -
-      kubectl apply -f $yamlPath -n $namespace
+# 2. kubectl apply 실행
+- script: |
+    echo ">> Setting KUBECONFIG"
+    export KUBECONFIG=$(kubeconfig.secureFilePath)
+
+    echo ">> Create namespace if not exists"
+    kubectl create namespace $namespace --dry-run=client -o yaml | kubectl apply -f -
+
+    echo ">> Apply YAML to Arc-enabled AKS"
+    kubectl apply -f $yamlPath -n $namespace
+  displayName: 'Deploy to Azure Arc AKS'
