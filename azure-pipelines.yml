@@ -7,26 +7,30 @@ pool:
 variables:
   namespace: hello
   yamlPath: hello-deployment.yaml
+  clusterName: aks-test2
+  clusterServer: https://aks-test2.modetour.com:6443
 
 steps:
-# 1. kubeconfig Secure File 다운로드
-- task: DownloadSecureFile@1
-  name: kubeconfig
-  inputs:
-    secureFile: 'kubeconfig.yaml'
-
-# 2. 배포 스크립트
 - script: |
-    echo ">> Export KUBECONFIG"
-    export KUBECONFIG=$(kubeconfig.secureFilePath)
+    echo ">> Build kubeconfig manually"
+    mkdir -p ~/.kube
+    KUBECONFIG_FILE=~/.kube/config
 
-    echo ">> Export variables"
-    export NAMESPACE=$(namespace)
-    export YAML_PATH=$(yamlPath)
+    kubectl config set-cluster $(clusterName) \
+      --server=$(clusterServer) \
+      --insecure-skip-tls-verify=true \
+      --kubeconfig=$KUBECONFIG_FILE
+
+    kubectl config set-context default \
+      --cluster=$(clusterName) \
+      --user=default \
+      --kubeconfig=$KUBECONFIG_FILE
+
+    kubectl config use-context default --kubeconfig=$KUBECONFIG_FILE
 
     echo ">> Create namespace if not exists"
-    kubectl create namespace $NAMESPACE --dry-run=client -o yaml | kubectl apply -f -
+    kubectl --kubeconfig=$KUBECONFIG_FILE create namespace $(namespace) --dry-run=client -o yaml | kubectl --kubeconfig=$KUBECONFIG_FILE apply -f -
 
-    echo ">> Apply YAML to Arc-enabled AKS"
-    kubectl apply -f $YAML_PATH -n $NAMESPACE
-  displayName: 'Deploy to Azure Arc AKS'
+    echo ">> Apply YAML"
+    kubectl --kubeconfig=$KUBECONFIG_FILE apply -f $(yamlPath) -n $(namespace)
+  displayName: 'Deploy without kubeconfig file'
