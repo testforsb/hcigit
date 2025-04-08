@@ -9,20 +9,24 @@ variables:
   yamlPath: hello-deployment.yaml
 
 steps:
-# 1. kubeconfig.yaml Secure File 다운로드
+# 1. kubeconfig Secure File 다운로드
 - task: DownloadSecureFile@1
   name: kubeconfig
   inputs:
-    secureFile: 'kubeconfig.yaml'   # 🔐 Secure Files에 업로드한 파일 이름
+    secureFile: 'kubeconfig.yaml'
 
-# 2. kubectl apply 실행
+# 2. 배포 스크립트
 - script: |
-    echo ">> Setting KUBECONFIG"
+    echo ">> Export KUBECONFIG"
     export KUBECONFIG=$(kubeconfig.secureFilePath)
 
+    echo ">> Export variables"
+    export NAMESPACE=$(namespace)
+    export YAML_PATH=$(yamlPath)
+
     echo ">> Create namespace if not exists"
-    kubectl create namespace $namespace --dry-run=client -o yaml | kubectl apply -f -
+    kubectl create namespace $NAMESPACE --dry-run=client -o yaml | kubectl apply -f -
 
     echo ">> Apply YAML to Arc-enabled AKS"
-    kubectl apply -f $yamlPath -n $namespace
+    kubectl apply -f $YAML_PATH -n $NAMESPACE
   displayName: 'Deploy to Azure Arc AKS'
